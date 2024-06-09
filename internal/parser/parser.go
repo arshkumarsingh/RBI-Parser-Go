@@ -4,7 +4,9 @@ import (
     "fmt"
     "io/ioutil"
     "net/http"
-    "regexp"
+    "strings"
+
+    "golang.org/x/net/html"
 )
 
 // FetchData fetches and parses data from the given URL.
@@ -33,20 +35,24 @@ func FetchData(url string) (string, error) {
 }
 
 // parseHTML parses the HTML content and extracts the relevant data.
-func parseHTML(html string) (string, error) {
-    // Regex to extract data, for example: <p>(.*?)</p>
-    re := regexp.MustCompile(`<p>(.*?)</p>`)
-    matches := re.FindAllStringSubmatch(html, -1)
-    
-    if matches == nil {
-        return "", fmt.Errorf("no matches found")
+func parseHTML(htmlContent string) (string, error) {
+    doc, err := html.Parse(strings.NewReader(htmlContent))
+    if err != nil {
+        return "", fmt.Errorf("failed to parse HTML: %w", err)
     }
 
-    // Extract and concatenate matches
-    var data string
-    for _, match := range matches {
-        data += match[1] + "\n"
-    }
+    var textContent strings.Builder
+    extractText(doc, &textContent)
+    return textContent.String(), nil
+}
 
-    return data, nil
+// extractText recursively extracts text from the HTML node.
+func extractText(n *html.Node, textContent *strings.Builder) {
+    if n.Type == html.TextNode {
+        textContent.WriteString(n.Data)
+        textContent.WriteString("\n")
+    }
+    for c := n.FirstChild; c != nil; c = c.NextSibling {
+        extractText(c, textContent)
+    }
 }
