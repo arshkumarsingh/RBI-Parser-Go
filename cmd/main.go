@@ -2,7 +2,7 @@ package main
 
 import (
     "fmt"
-    `github.com/yourusername/RBI-Parser-Go/internal/parser`
+    "github.com/arshkumarsingh/RBI-Parser-Go/internal/parser"
 )
 
 func main() {
