@@ -148,19 +148,10 @@ func DownloadFile(url, target string) (string, error) {
 }
 
 // DownloadAll downloads all .xlsx files from the RBI page and saves them to a directory
-//
-// Parameters:
-// - scrapeURL: The URL of the RBI page containing the .xlsx files.
-// - xlsxDir: The directory to save the downloaded .xlsx files.
-// - etagsFile: The file to load and save entity tags for HTTP caching.
 func DownloadAll(scrapeURL, xlsxDir, etagsFile string) {
-	// Create a WaitGroup to wait for all goroutines to finish
-	var wg sync.WaitGroup
-
 	// Load the entity tags from the etags file or create a new map if the file cannot be opened
 	etags, err := LoadEtags(etagsFile)
 	if err != nil {
-		log.Printf("Could not load etags: %v", err)
 		etags = make(map[string]string)
 	}
 
@@ -177,6 +168,9 @@ func DownloadAll(scrapeURL, xlsxDir, etagsFile string) {
 		log.Fatalf("Error parsing HTML: %v", err)
 	}
 
+	// Create a WaitGroup to wait for all goroutines to finish
+	var wg sync.WaitGroup
+
 	// Find all the links to .xlsx files
 	doc.Find("a[href$='.xlsx']").Each(func(i int, s *goquery.Selection) {
 		// Add 1 to the WaitGroup counter
@@ -189,14 +183,12 @@ func DownloadAll(scrapeURL, xlsxDir, etagsFile string) {
 			// Get the URL of the .xlsx file and check if the href attribute exists
 			url, exists := s.Attr("href")
 			if !exists {
-				log.Println("No href attribute found")
 				return
 			}
 
 			// Extract the bank name from the context of the .xlsx file
 			bankName, err := ExtractBankNameFromContext(s)
 			if err != nil {
-				log.Printf("Failed to extract bank name for URL %s: %v", url, err)
 				return
 			}
 
@@ -206,24 +198,17 @@ func DownloadAll(scrapeURL, xlsxDir, etagsFile string) {
 
 			// Check if the .xlsx file has already been downloaded with the same entity tag
 			if etag, ok := etags[url]; ok && etag != "" {
-				log.Printf("%s already downloaded with etag %s, skipping", url, etag)
 				return
 			}
 
 			// Download the .xlsx file and get the new entity tag
 			newEtag, err := DownloadFile(url, xlsxPath)
 			if err != nil {
-				log.Printf("Failed to download %s: %v", url, err)
 				return
 			}
 
 			// Update the entity tags map with the new entity tag
 			etags[url] = newEtag
-
-			// Save the entity tags to the etags file
-			if err := SaveEtags(etagsFile, etags); err != nil {
-				log.Printf("Failed to save etags: %v", err)
-			}
 
 			log.Printf("Downloaded %s", url)
 		}(s)
@@ -231,6 +216,12 @@ func DownloadAll(scrapeURL, xlsxDir, etagsFile string) {
 
 	// Wait for all the goroutines to finish
 	wg.Wait()
+
+	// Save the entity tags to the etags file
+	if err := SaveEtags(etagsFile, etags); err != nil {
+		log.Printf("Failed to save etags: %v", err)
+	}
+
 	log.Println("All downloads completed.")
 }
 
